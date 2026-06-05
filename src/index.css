@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+body {
+  background-color: #FAFAFA;
+  color: #000000;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar for sleek appearance */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E5E5;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CCCCCC;
+}
+
+/* Custom Premium Strikethrough Animation */
+.todo-strikethrough {
+  position: relative;
+  display: inline-block;
+  transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.todo-strikethrough::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 52%;
+  width: 0;
+  height: 1.5px;
+  background-color: #9CA3AF; /* gray-400 */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(-50%);
+}
+
+.todo-strikethrough.completed {
+  color: #9CA3AF; /* gray-400 */
+}
+
+.todo-strikethrough.completed::after {
+  width: 100%;
+}
+
+/* Fluid Apple Pill Transition Slider */
+.pill-slider {
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Glassmorphism details */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Radial Progress Dash Animation */
+.radial-progress-ring {
+  transition: stroke-dashoffset 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Micro-interaction bounce */
+.click-bounce {
+  transition: transform 0.1s ease;
+}
+
+.click-bounce:active {
+  transform: scale(0.96);
+}
+
+/* Safe Area Inset Handling for iOS Home Indicator */
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom, 24px);
+}
+
+.safe-pt {
+  padding-top: env(safe-area-inset-top, 44px);
+}
+
+/* Sembunyikan scrollbar untuk Chrome, Safari, dan Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sembunyikan scrollbar untuk IE, Edge, dan Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
