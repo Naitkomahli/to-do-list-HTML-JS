@@ -300,6 +300,15 @@ const TodoTable = ({ onCompleteAction }) => {
                             ))}
                           </div>
                         )}
+
+                        {/* Delete Button - weekly only */}
+                        <button
+                          onClick={() => handleDeleteTask(task)}
+                          className="w-8 h-8 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50/50 transition-colors opacity-50 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                          title="Delete task"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     );
                   })
