@@ -225,6 +225,16 @@ export const TodoProvider = ({ children }) => {
     ? Math.round((completedTasksCount / totalCalculatedTasks) * 100)
     : 0;
 
+  // Separate stats for Today
+  const todayCompletionPercentage = todayTotal > 0
+    ? Math.round((todayCompleted / todayTotal) * 100)
+    : 0;
+
+  // Separate stats for This Week
+  const weeklyCompletionPercentage = weeklyTotal > 0
+    ? Math.round((weeklyCompleted / weeklyTotal) * 100)
+    : 0;
+
   return (
     <TodoContext.Provider
       value={{
@@ -237,6 +247,12 @@ export const TodoProvider = ({ children }) => {
         weeklyTasks,
         remainingTasksCount,
         completionPercentage,
+        todayCompletionPercentage,
+        weeklyCompletionPercentage,
+        todayCompleted,
+        weeklyCompleted,
+        todayTotal,
+        weeklyTotal,
         setTimeframe,
         loginWithGoogle,
         logout,

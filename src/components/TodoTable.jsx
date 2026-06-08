@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTodo } from '../context/TodoContext';
-import { Check, Plus, Trash2, Inbox } from 'lucide-react';
+import { Check, Plus, Trash2, Inbox, Sun, CalendarDays } from 'lucide-react';
 
 const TodoTable = ({ onCompleteAction }) => {
   const {
@@ -96,12 +96,19 @@ const TodoTable = ({ onCompleteAction }) => {
     <div className="flex-1 flex flex-col min-h-0 select-none pb-2 font-sans">
       <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
         {/* ===================== TODAY SECTION ===================== */}
-        <div className="min-w-0 mb-6">
-          <div className="flex items-center gap-2 mb-3 px-1">
+        <div className="min-w-0 mb-8">
+          {/* Today Header — Large & Modern */}
+          <div className="mb-4 px-1 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100/60 flex items-center justify-center shrink-0">
+              <Sun className="w-4.5 h-4.5 text-amber-500" strokeWidth={2} />
+            </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xs sm:text-sm font-bold text-neutral-400 uppercase tracking-widest">
+              <h2 className="text-lg sm:text-xl font-bold text-neutral-800 tracking-tight">
                 Today
               </h2>
+              <p className="text-[11px] text-neutral-400 font-medium mt-0.5">
+                {todayTasks.filter(t => t.completed).length}/{todayTasks.length} tasks completed
+              </p>
             </div>
           </div>
 
@@ -124,7 +131,7 @@ const TodoTable = ({ onCompleteAction }) => {
                 return (
                   <div
                     key={task.id}
-                    className={`group flex items-center gap-2 py-2.5 px-3 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md min-h-[48px] ${
+                    className={`group flex items-center gap-2.5 py-2.5 px-3.5 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md hover:border-neutral-200 min-h-[48px] ${
                       task.completed ? 'opacity-50' : ''
                     }`}
                   >
@@ -132,8 +139,8 @@ const TodoTable = ({ onCompleteAction }) => {
                       onClick={() => handleToggleNormal(task)}
                       className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer ${
                         task.completed
-                          ? 'bg-green-500 border border-green-500 text-white'
-                          : 'border-2 border-neutral-300 hover:border-green-400'
+                          ? 'bg-green-500 border border-green-500 text-white shadow-sm shadow-green-500/30'
+                          : 'border-2 border-neutral-300 hover:border-green-400 hover:bg-green-50'
                       }`}
                     >
                       {task.completed && <Check className="w-3.5 h-3.5 stroke-[3.5]" />}
@@ -166,7 +173,7 @@ const TodoTable = ({ onCompleteAction }) => {
 
                     <button
                       onClick={() => handleDeleteTask(task)}
-                      className="w-8 h-8 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50/50 transition-colors opacity-50 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                      className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 cursor-pointer"
                       title="Delete task"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -177,7 +184,7 @@ const TodoTable = ({ onCompleteAction }) => {
             )}
 
             {isAddingToday ? (
-              <div className="flex items-center gap-2 py-2.5 px-3 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
+              <div className="flex items-center gap-2.5 py-2.5 px-3.5 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
                 <div className="w-6 h-6 rounded-full border-2 border-neutral-200 shrink-0 bg-neutral-50" />
                 <input
                   ref={addInputRef}
@@ -193,7 +200,7 @@ const TodoTable = ({ onCompleteAction }) => {
             ) : (
               <button
                 onClick={() => handleStartAdd('today')}
-                className="flex items-center gap-2 py-3.5 px-3 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
+                className="flex items-center gap-2.5 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
               >
                 <div className="w-6 h-6 rounded-full border-2 border-neutral-300 group-hover:border-accent/60 transition-colors flex items-center justify-center shrink-0">
                   <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-accent" />
@@ -209,12 +216,25 @@ const TodoTable = ({ onCompleteAction }) => {
         {/* ===================== THIS WEEK SECTION ===================== */}
         <div className="min-w-0 overflow-x-auto no-scrollbar pb-2">
           <div className="min-w-[600px] sm:min-w-[680px]">
-            {/* Header Row */}
-            <div className="flex items-center gap-3 mb-3 px-3">
+            {/* This Week Header — Large & Modern */}
+            <div className="flex items-center gap-3 mb-4 px-1">
+              <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100/60 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-4.5 h-4.5 text-violet-500" strokeWidth={2} />
+              </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xs sm:text-sm font-bold text-neutral-400 uppercase tracking-widest">
+                <h2 className="text-lg sm:text-xl font-bold text-neutral-800 tracking-tight">
                   This Week
                 </h2>
+                <p className="text-[11px] text-neutral-400 font-medium mt-0.5">
+                  Track daily progress across the week
+                </p>
+              </div>
+            </div>
+
+            {/* Header Row */}
+            <div className="flex items-center gap-3 mb-3 px-3.5">
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest">Tasks</span>
               </div>
               <div className="flex items-center gap-3 shrink-0 pr-1">
                 {DAYS_SHORT.map((day, i) => (
@@ -252,7 +272,7 @@ const TodoTable = ({ onCompleteAction }) => {
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-center gap-3 py-2.5 px-3 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md min-h-[48px] ${
+                      className={`group flex items-center gap-3 py-2.5 px-3.5 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md hover:border-neutral-200 min-h-[48px] ${
                         isAllDone ? 'opacity-50' : ''
                       }`}
                     >
@@ -304,7 +324,7 @@ const TodoTable = ({ onCompleteAction }) => {
                       {/* Delete Button */}
                       <button
                         onClick={() => handleDeleteTask(task)}
-                        className="w-8 h-8 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50/50 transition-colors opacity-50 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                        className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 cursor-pointer"
                         title="Delete task"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -316,7 +336,7 @@ const TodoTable = ({ onCompleteAction }) => {
 
               {/* Add Task for Weekly */}
               {isAddingWeekly ? (
-                <div className="flex items-center gap-3 py-2.5 px-3 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
+                <div className="flex items-center gap-3 py-2.5 px-3.5 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
                   <input
                     ref={addInputRef}
                     type="text"
@@ -331,7 +351,7 @@ const TodoTable = ({ onCompleteAction }) => {
               ) : (
                 <button
                   onClick={() => handleStartAdd('week')}
-                  className="flex items-center gap-3 py-3.5 px-3 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
+                  className="flex items-center gap-3 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
                 >
                   <span className="text-sm sm:text-base font-semibold text-neutral-400 group-hover:text-neutral-500 transition-colors">
                     + Add the task

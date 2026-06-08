@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 const DeviceFrame = ({ children, islandMessage }) => {
