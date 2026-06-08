@@ -1,6 +1,38 @@
 import { useState, useRef } from 'react';
 import { useTodo } from '../context/TodoContext';
-import { Check, Plus, Trash2, Inbox, Sun, CalendarDays } from 'lucide-react';
+import { Check, Plus, Trash2, Inbox } from 'lucide-react';
+
+const CircularProgress = ({ percentage, size = 48, strokeWidth = 4, color = '#1A73E8' }) => {
+  const r = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="w-full h-full -rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          stroke="#F3F4F6"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-xs font-bold text-neutral-700">{percentage}%</span>
+      </div>
+    </div>
+  );
+};
 
 const TodoTable = ({ onCompleteAction }) => {
   const {
@@ -10,10 +42,15 @@ const TodoTable = ({ onCompleteAction }) => {
     addTask,
     deleteTask,
     updateTaskText,
+    todayCompleted,
+    todayTotal,
+    weeklyCompleted,
+    weeklyTotal,
+    todayCompletionPercentage,
+    weeklyCompletionPercentage,
   } = useTodo();
 
-  const [isAddingToday, setIsAddingToday] = useState(false);
-  const [isAddingWeekly, setIsAddingWeekly] = useState(false);
+  const [activeSection, setActiveSection] = useState(null); // 'today' | 'week' | null
   const [newText, setNewText] = useState('');
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editText, setEditText] = useState('');
@@ -42,11 +79,8 @@ const TodoTable = ({ onCompleteAction }) => {
   };
 
   const handleStartAdd = (type) => {
-    if (type === 'today') {
-      setIsAddingToday(true);
-    } else {
-      setIsAddingWeekly(true);
-    }
+    setActiveSection(type);
+    setNewText('');
     setTimeout(() => addInputRef.current?.focus(), 50);
   };
 
@@ -56,15 +90,13 @@ const TodoTable = ({ onCompleteAction }) => {
       onCompleteAction(`Created task "${newText.trim()}"`);
       setNewText('');
     }
-    if (type === 'today') setIsAddingToday(false);
-    else setIsAddingWeekly(false);
+    setActiveSection(null);
   };
 
   const handleKeyPressNew = (e, type) => {
     if (e.key === 'Enter') handleSaveNew(type);
     if (e.key === 'Escape') {
-      setIsAddingToday(false);
-      setIsAddingWeekly(false);
+      setActiveSection(null);
       setNewText('');
     }
   };
@@ -94,35 +126,41 @@ const TodoTable = ({ onCompleteAction }) => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 select-none pb-2 font-sans">
-      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-10">
         {/* ===================== TODAY SECTION ===================== */}
-        <div className="min-w-0 mb-8">
-          {/* Today Header — Large & Modern */}
-          <div className="mb-4 px-1 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100/60 flex items-center justify-center shrink-0">
-              <Sun className="w-4.5 h-4.5 text-amber-500" strokeWidth={2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold text-neutral-800 tracking-tight">
-                Today
-              </h2>
-              <p className="text-[11px] text-neutral-400 font-medium mt-0.5">
-                {todayTasks.filter(t => t.completed).length}/{todayTasks.length} tasks completed
-              </p>
+        <section className="min-w-0">
+          {/* Today Header — Subjudul besar + progress */}
+          <div className="mb-5 px-1">
+            <div className="flex items-center gap-4">
+              <CircularProgress
+                percentage={todayCompletionPercentage}
+                size={52}
+                strokeWidth={4}
+                color="#EAB308"
+              />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight leading-tight">
+                  Today
+                </h2>
+                <p className="text-sm text-neutral-400 font-medium mt-0.5">
+                  {todayCompleted}/{todayTotal} selesai
+                </p>
+              </div>
             </div>
           </div>
 
+          {/* Today Task List */}
           <div className="flex flex-col gap-2">
             {todayTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 sm:py-16 px-6 text-center">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
-                  <Inbox className="w-6 h-6 sm:w-7 sm:h-7 text-neutral-300" />
+              <div className="flex flex-col items-center justify-center py-12 sm:py-14 px-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+                  <Inbox className="w-6 h-6 text-amber-300" />
                 </div>
                 <h4 className="text-sm font-semibold text-neutral-400 mb-1">
-                  No tasks yet
+                  Belum ada tugas
                 </h4>
                 <p className="text-xs text-neutral-300 max-w-[200px]">
-                  Tap the button below to add your first task for today.
+                  Ketuk tombol di bawah untuk menambahkan tugas hari ini.
                 </p>
               </div>
             ) : (
@@ -131,7 +169,7 @@ const TodoTable = ({ onCompleteAction }) => {
                 return (
                   <div
                     key={task.id}
-                    className={`group flex items-center gap-2.5 py-2.5 px-3.5 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md hover:border-neutral-200 min-h-[48px] ${
+                    className={`group flex items-center gap-3 py-2.5 px-3.5 bg-white border border-neutral-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md hover:border-neutral-200 min-h-[48px] ${
                       task.completed ? 'opacity-50' : ''
                     }`}
                   >
@@ -155,7 +193,7 @@ const TodoTable = ({ onCompleteAction }) => {
                           onBlur={() => handleSaveEdit(task.id)}
                           onKeyDown={(e) => handleKeyPressEdit(e, task.id)}
                           autoFocus
-                          className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm sm:text-base font-medium focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                          className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm sm:text-base font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20"
                         />
                       ) : (
                         <span
@@ -173,8 +211,8 @@ const TodoTable = ({ onCompleteAction }) => {
 
                     <button
                       onClick={() => handleDeleteTask(task)}
-                      className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 cursor-pointer"
-                      title="Delete task"
+                      className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 cursor-pointer"
+                      title="Hapus tugas"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -183,8 +221,8 @@ const TodoTable = ({ onCompleteAction }) => {
               })
             )}
 
-            {isAddingToday ? (
-              <div className="flex items-center gap-2.5 py-2.5 px-3.5 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
+            {activeSection === 'today' ? (
+              <div className="flex items-center gap-3 py-2.5 px-3.5 bg-white border border-amber-200 rounded-xl shadow-sm min-h-[48px]">
                 <div className="w-6 h-6 rounded-full border-2 border-neutral-200 shrink-0 bg-neutral-50" />
                 <input
                   ref={addInputRef}
@@ -200,41 +238,46 @@ const TodoTable = ({ onCompleteAction }) => {
             ) : (
               <button
                 onClick={() => handleStartAdd('today')}
-                className="flex items-center gap-2.5 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
+                className="flex items-center gap-3 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-amber-300/50 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
               >
-                <div className="w-6 h-6 rounded-full border-2 border-neutral-300 group-hover:border-accent/60 transition-colors flex items-center justify-center shrink-0">
-                  <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-accent" />
+                <div className="w-6 h-6 rounded-full border-2 border-neutral-300 group-hover:border-amber-400 transition-colors flex items-center justify-center shrink-0">
+                  <Plus className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500" />
                 </div>
                 <span className="text-sm font-semibold text-neutral-400 group-hover:text-neutral-500 transition-colors">
-                  Add the task
+                  Tambah tugas hari ini
                 </span>
               </button>
             )}
           </div>
-        </div>
+        </section>
 
         {/* ===================== THIS WEEK SECTION ===================== */}
-        <div className="min-w-0 overflow-x-auto no-scrollbar pb-2">
-          <div className="min-w-[600px] sm:min-w-[680px]">
-            {/* This Week Header — Large & Modern */}
-            <div className="flex items-center gap-3 mb-4 px-1">
-              <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100/60 flex items-center justify-center shrink-0">
-                <CalendarDays className="w-4.5 h-4.5 text-violet-500" strokeWidth={2} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg sm:text-xl font-bold text-neutral-800 tracking-tight">
-                  This Week
-                </h2>
-                <p className="text-[11px] text-neutral-400 font-medium mt-0.5">
-                  Track daily progress across the week
-                </p>
+        <section className="min-w-0 overflow-x-auto no-scrollbar pb-4">
+          <div className="min-w-[640px] sm:min-w-[700px]">
+            {/* This Week Header — Subjudul besar + progress */}
+            <div className="mb-5 px-1">
+              <div className="flex items-center gap-4">
+                <CircularProgress
+                  percentage={weeklyCompletionPercentage}
+                  size={52}
+                  strokeWidth={4}
+                  color="#8B5CF6"
+                />
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight leading-tight">
+                    This Week
+                  </h2>
+                  <p className="text-sm text-neutral-400 font-medium mt-0.5">
+                    {weeklyCompleted}/{weeklyTotal} centangan
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Header Row */}
             <div className="flex items-center gap-3 mb-3 px-3.5">
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest">Tasks</span>
+                <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest">Tugas</span>
               </div>
               <div className="flex items-center gap-3 shrink-0 pr-1">
                 {DAYS_SHORT.map((day, i) => (
@@ -246,29 +289,27 @@ const TodoTable = ({ onCompleteAction }) => {
                   </div>
                 ))}
               </div>
-              {/* Spacer to match delete button in task rows */}
               <div className="w-8 shrink-0" />
             </div>
 
             {/* Task Rows */}
             <div className="flex flex-col gap-2.5">
               {weeklyTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 sm:py-16 px-6 text-center">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
-                    <Inbox className="w-6 h-6 sm:w-7 sm:h-7 text-neutral-300" />
+                <div className="flex flex-col items-center justify-center py-12 sm:py-14 px-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-violet-50 flex items-center justify-center mb-4">
+                    <Inbox className="w-6 h-6 text-violet-300" />
                   </div>
                   <h4 className="text-sm font-semibold text-neutral-400 mb-1">
-                    No weekly tasks yet
+                    Belum ada tugas mingguan
                   </h4>
                   <p className="text-xs text-neutral-300 max-w-[200px]">
-                    Tap the button below to add your first weekly task.
+                    Ketuk tombol di bawah untuk menambahkan tugas mingguan.
                   </p>
                 </div>
               ) : (
                 weeklyTasks.map((task) => {
                   const isEditing = editingTaskId === task.id;
                   const isAllDone = task.history?.every(Boolean);
-
                   return (
                     <div
                       key={task.id}
@@ -286,7 +327,7 @@ const TodoTable = ({ onCompleteAction }) => {
                             onBlur={() => handleSaveEdit(task.id)}
                             onKeyDown={(e) => handleKeyPressEdit(e, task.id)}
                             autoFocus
-                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm sm:text-base font-medium focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm sm:text-base font-medium focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20"
                           />
                         ) : (
                           <span
@@ -324,8 +365,8 @@ const TodoTable = ({ onCompleteAction }) => {
                       {/* Delete Button */}
                       <button
                         onClick={() => handleDeleteTask(task)}
-                        className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 cursor-pointer"
-                        title="Delete task"
+                        className="w-7 h-7 shrink-0 flex items-center justify-center text-neutral-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-60 group-hover:opacity-100 cursor-pointer"
+                        title="Hapus tugas"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -335,8 +376,8 @@ const TodoTable = ({ onCompleteAction }) => {
               )}
 
               {/* Add Task for Weekly */}
-              {isAddingWeekly ? (
-                <div className="flex items-center gap-3 py-2.5 px-3.5 bg-white border border-neutral-200 rounded-xl shadow-sm min-h-[48px]">
+              {activeSection === 'week' ? (
+                <div className="flex items-center gap-3 py-2.5 px-3.5 bg-white border border-violet-200 rounded-xl shadow-sm min-h-[48px]">
                   <input
                     ref={addInputRef}
                     type="text"
@@ -351,16 +392,16 @@ const TodoTable = ({ onCompleteAction }) => {
               ) : (
                 <button
                   onClick={() => handleStartAdd('week')}
-                  className="flex items-center gap-3 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-accent/40 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
+                  className="flex items-center gap-3 py-3.5 px-3.5 border-2 border-dashed border-neutral-200 hover:border-violet-300/50 bg-transparent group rounded-xl transition-all duration-200 cursor-pointer w-full text-left min-h-[48px]"
                 >
                   <span className="text-sm sm:text-base font-semibold text-neutral-400 group-hover:text-neutral-500 transition-colors">
-                    + Add the task
+                    + Tambah tugas mingguan
                   </span>
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

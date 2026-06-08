@@ -1,36 +1,22 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, db } from '../firebase';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp
+} from 'firebase/firestore';
 
 const TodoContext = createContext();
 
-// Helper: dapetin key minggu ISO (contoh: "2026-W23")
-const getWeekKey = () => {
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const pastDays = Math.floor((now - startOfYear) / 86400000);
-  const weekNum = Math.ceil((pastDays + startOfYear.getDay() + 1) / 7);
-  return `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-};
-
-// 1. Modifikasi DEFAULT_TASKS: tipe 'This Week' sekarang menggunakan array history [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
-const DEFAULT_TASKS = [
-  // Today Tasks
-  { id: 1, text: 'Inter', completed: true, category: 'Design System', timeframe: 'Today' },
-  { id: 2, text: 'SF Pro', completed: false, category: 'Typography', timeframe: 'Today' },
-  { id: 3, text: 'Tailwind CSS Integration', completed: false, category: 'Development', timeframe: 'Today' },
-  { id: 4, text: 'Dims strikrough', completed: true, category: 'Animations', timeframe: 'Today' },
-  { id: 5, text: 'Service Worker Configuration', completed: false, category: 'PWA', timeframe: 'Today' },
-  
-  // This Week Tasks (Menggunakan struktur matriks 7 hari: index 0 = Senin, 6 = Minggu)
-  { id: 6, text: 'Aesthetic Radial Progress Ring', history: [true, true, false, false, false, false, false], category: 'Design System', timeframe: 'This Week' },
-  { id: 7, text: 'Segmented Control Apple Transitions', history: [true, false, true, false, false, false, false], category: 'Animations', timeframe: 'This Week' },
-  { id: 8, text: 'Google Auth Popup Simulation', history: [false, false, false, false, false, false, false], category: 'Auth', timeframe: 'This Week' },
-  { id: 9, text: 'PWA Touch Icon Asset Creation', history: [false, false, false, false, false, false, false], category: 'PWA', timeframe: 'This Week' },
-  { id: 10, text: 'Dynamic Header Remaining Subtext', history: [false, false, false, false, false, false, false], category: 'Development', timeframe: 'This Week' },
-  
-];
-
 export const TodoProvider = ({ children }) => {
-  // Auth state — persist login agar tidak perlu login ulang
+  // ─── Auth state dari Firebase ───
   const [user, setUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('todo_user');
@@ -43,63 +29,84 @@ export const TodoProvider = ({ children }) => {
     }
     return null;
   });
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Timeframe state
+  // ─── Firebase Auth listener ───
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || 'User',
+          email: firebaseUser.email || '',
+          avatar: firebaseUser.photoURL || ''
+        });
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Simpan user ke localStorage untuk quick load ───
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('todo_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('todo_user');
+    }
+  }, [user]);
+
+  // ─── Timeframe state (lokal — preferensi UI) ───
   const [timeframe, setTimeframe] = useState(() => {
-    const savedTimeframe = localStorage.getItem('todo_timeframe');
-    if (savedTimeframe === 'This Month') {
-      localStorage.removeItem('todo_timeframe');
-      return 'Today';
-    }
-    return savedTimeframe || 'Today';
+    return localStorage.getItem('todo_timeframe') || 'Today';
   });
 
-  // Tasks state — dengan auto-reset harian dan mingguan
-  const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('todo_tasks');
-    const loadedTasks = savedTasks ? JSON.parse(savedTasks) : DEFAULT_TASKS;
+  useEffect(() => {
+    localStorage.setItem('todo_timeframe', timeframe);
+  }, [timeframe]);
 
-    // Filter: hapus semua task "This Month" dari localStorage lama
-    let filteredTasks = loadedTasks.filter(task => task.timeframe !== 'This Month');
+  // ─── Tasks state dari Firestore ───
+  const [tasks, setTasks] = useState([]);
 
-    // --- CETAK ULANG DEFAULT jika tidak ada data lokal (first run) ---
-    const hasLocalData = savedTasks !== null;
-    if (!hasLocalData) {
-      filteredTasks = DEFAULT_TASKS;
+  // Reset tasks saat user logout
+  useEffect(() => {
+    if (!user && tasks.length > 0) {
+      setTasks([]);
     }
+  }, [user, tasks.length]);
 
-    // --- CEK PERGANTIAN HARI (reset Today) ---
-    const todayStr = new Date().toDateString();
-    const lastOpenedDate = localStorage.getItem('todo_last_opened_date');
-    const isNewDay = lastOpenedDate && lastOpenedDate !== todayStr;
+  // Real-time listener: ambil tasks milik user saat ini
+  useEffect(() => {
+    if (!user || !user.uid) return;
 
-    // --- CEK PERGANTIAN MINGGU (reset This Week) ---
-    const currentWeekKey = getWeekKey();
-    const lastOpenedWeek = localStorage.getItem('todo_last_opened_week');
-    const isNewWeek = lastOpenedWeek && lastOpenedWeek !== currentWeekKey;
+    const q = query(
+      collection(db, 'tasks'),
+      where('uid', '==', user.uid)
+    );
 
-    if (isNewDay) {
-      filteredTasks = filteredTasks.map(task =>
-        task.timeframe === 'Today' ? { ...task, completed: false } : task
-      );
-    }
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const loadedTasks = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      // Urutkan berdasarkan createdAt
+      loadedTasks.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return aTime - bTime;
+      });
+      setTasks(loadedTasks);
+    }, (error) => {
+      console.error('Firestore snapshot error:', error);
+    });
 
-    if (isNewWeek) {
-      filteredTasks = filteredTasks.map(task =>
-        task.timeframe === 'This Week'
-          ? { ...task, history: [false, false, false, false, false, false, false] }
-          : task
-      );
-    }
+    return unsubscribe;
+  }, [user]);
 
-    // Simpan tanggal & week terakhir dibuka
-    localStorage.setItem('todo_last_opened_date', todayStr);
-    localStorage.setItem('todo_last_opened_week', currentWeekKey);
-
-    return filteredTasks;
-  });
-
-  // Custom categories list
+  // ─── Categories ───
   const [categories] = useState([
     'Design System',
     'Typography',
@@ -112,104 +119,78 @@ export const TodoProvider = ({ children }) => {
     'Category'
   ]);
 
-  // Persist user
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('todo_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('todo_user');
+  // ─── Google Login ───
+  const loginWithGoogle = useCallback(async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        console.error('Google sign-in error:', err);
+      }
+      throw err;
     }
-  }, [user]);
+  }, []);
 
-  // Persist timeframe
-  useEffect(() => {
-    localStorage.setItem('todo_timeframe', timeframe);
-  }, [timeframe]);
+  // ─── Sign Out ───
+  const logout = useCallback(async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  }, []);
 
-  // Persist tasks + update last opened date/week setiap kali tasks berubah
-  useEffect(() => {
-    localStorage.setItem('todo_tasks', JSON.stringify(tasks));
-    localStorage.setItem('todo_last_opened_date', new Date().toDateString());
-    localStorage.setItem('todo_last_opened_week', getWeekKey());
+  // ─── Toggle Task ───
+  const toggleTask = useCallback(async (id, dayIndex = null) => {
+    const taskRef = doc(db, 'tasks', id);
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    if (task.timeframe === 'This Week' && dayIndex !== null) {
+      const newHistory = [...(task.history || [false, false, false, false, false, false, false])];
+      newHistory[dayIndex] = !newHistory[dayIndex];
+      await updateDoc(taskRef, { history: newHistory });
+    } else {
+      await updateDoc(taskRef, { completed: !task.completed });
+    }
   }, [tasks]);
 
-  // Google Login
-  const loginWithGoogle = (account) => {
-    setUser({
-      name: account.name || 'essumr',
-      email: account.email || 'essumr@todo.com',
-      avatar: account.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop'
-    });
-  };
-
-  // Sign out
-  const logout = () => {
-    setUser(null);
-  };
-
-  // 3. LOGIKA BARU: Modifikasi fungsi Toggle Task agar mendukung pencentangan harian maupun matriks 7 hari
-  const toggleTask = (id, dayIndex = null) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task => {
-        if (task.id !== id) return task;
-
-        if (task.timeframe === 'This Week' && dayIndex !== null) {
-          const newHistory = [...task.history];
-          newHistory[dayIndex] = !newHistory[dayIndex];
-          return { ...task, history: newHistory };
-        } else {
-          return { ...task, completed: !task.completed };
-        }
-      })
-    );
-  };
-
-  // 4. LOGIKA BARU: Sesuaikan fungsi tambah tugas agar mengenali cetakan history kosong untuk tugas mingguan
-  const addTask = (text, category = 'Category', taskTimeframe = timeframe) => {
+  // ─── Add Task ───
+  const addTask = useCallback(async (text, category = 'Category', taskTimeframe = timeframe) => {
+    if (!user || !user.uid) return;
     const newTask = {
-      id: Date.now(),
+      uid: user.uid,
       text,
       category,
       timeframe: taskTimeframe,
-      ...(taskTimeframe === 'This Week' 
+      createdAt: serverTimestamp(),
+      ...(taskTimeframe === 'This Week'
         ? { history: [false, false, false, false, false, false, false] }
         : { completed: false }
       )
     };
-    setTasks(prevTasks => [...prevTasks, newTask]);
-  };
+    await addDoc(collection(db, 'tasks'), newTask);
+  }, [user, timeframe]);
 
-  // Delete Task
-  const deleteTask = (id) => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
-  };
+  // ─── Delete Task ───
+  const deleteTask = useCallback(async (id) => {
+    await deleteDoc(doc(db, 'tasks', id));
+  }, []);
 
-  // Update Task Text
-  const updateTaskText = (id, newText) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === id ? { ...task, text: newText } : task
-      )
-    );
-  };
+  // ─── Update Task Text ───
+  const updateTaskText = useCallback(async (id, newText) => {
+    await updateDoc(doc(db, 'tasks', id), { text: newText });
+  }, []);
 
-  // Update Task Category
-  const updateTaskCategory = (id, newCategory) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === id ? { ...task, category: newCategory } : task
-      )
-    );
-  };
+  // ─── Update Task Category ───
+  const updateTaskCategory = useCallback(async (id, newCategory) => {
+    await updateDoc(doc(db, 'tasks', id), { category: newCategory });
+  }, []);
 
-  // Backward compat: activeTasks = all tasks for legacy usage
-  const activeTasks = tasks;
-
-  // Separate today and weekly tasks
+  // ─── Computed stats ───
   const todayTasks = tasks.filter(t => t.timeframe === 'Today');
   const weeklyTasks = tasks.filter(t => t.timeframe === 'This Week');
 
-  // Combined stats for progress dashboard
   const todayTotal = todayTasks.length;
   const todayCompleted = todayTasks.filter(t => t.completed).length;
   const weeklyTotal = weeklyTasks.length * 7;
@@ -220,49 +201,44 @@ export const TodoProvider = ({ children }) => {
   const totalCalculatedTasks = todayTotal + weeklyTotal;
   const completedTasksCount = todayCompleted + weeklyCompleted;
   const remainingTasksCount = totalCalculatedTasks - completedTasksCount;
-  
   const completionPercentage = totalCalculatedTasks > 0
     ? Math.round((completedTasksCount / totalCalculatedTasks) * 100)
     : 0;
-
-  // Separate stats for Today
   const todayCompletionPercentage = todayTotal > 0
     ? Math.round((todayCompleted / todayTotal) * 100)
     : 0;
-
-  // Separate stats for This Week
   const weeklyCompletionPercentage = weeklyTotal > 0
     ? Math.round((weeklyCompleted / weeklyTotal) * 100)
     : 0;
 
+  const value = {
+    user,
+    authLoading,
+    timeframe,
+    tasks,
+    categories,
+    todayTasks,
+    weeklyTasks,
+    remainingTasksCount,
+    completionPercentage,
+    todayCompletionPercentage,
+    weeklyCompletionPercentage,
+    todayCompleted,
+    weeklyCompleted,
+    todayTotal,
+    weeklyTotal,
+    setTimeframe,
+    loginWithGoogle,
+    logout,
+    toggleTask,
+    addTask,
+    deleteTask,
+    updateTaskText,
+    updateTaskCategory
+  };
+
   return (
-    <TodoContext.Provider
-      value={{
-        user,
-        timeframe,
-        tasks,
-        categories,
-        activeTasks,
-        todayTasks,
-        weeklyTasks,
-        remainingTasksCount,
-        completionPercentage,
-        todayCompletionPercentage,
-        weeklyCompletionPercentage,
-        todayCompleted,
-        weeklyCompleted,
-        todayTotal,
-        weeklyTotal,
-        setTimeframe,
-        loginWithGoogle,
-        logout,
-        toggleTask,
-        addTask,
-        deleteTask,
-        updateTaskText,
-        updateTaskCategory
-      }}
-    >
+    <TodoContext.Provider value={value}>
       {children}
     </TodoContext.Provider>
   );

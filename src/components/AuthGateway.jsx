@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
 import { useTodo } from '../context/TodoContext';
 import logo from '../assets/logo.png';
 
@@ -8,40 +7,18 @@ const AuthGateway = () => {
   const [isOpening, setIsOpening] = useState(false);
   const [error, setError] = useState('');
 
-  const login = useGoogleLogin({
-    onSuccess: (credentialResponse) => {
-      fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-        headers: { Authorization: `Bearer ${credentialResponse.access_token}` }
-      })
-        .then(res => res.json())
-        .then(data => {
-          loginWithGoogle({
-            name: data.name || 'User',
-            email: data.email || '',
-            avatar: data.picture || ''
-          });
-        })
-        .catch(() => {
-          loginWithGoogle({
-            name: 'Google User',
-            email: 'user@gmail.com',
-            avatar: ''
-          });
-        });
-    },
-    onError: () => {
-      setError('Google Sign-In gagal. Silakan coba lagi.');
-    },
-    onNonOAuthError: () => {
-      setError('Google Sign-In dibatalkan atau terjadi kesalahan.');
-    },
-    scope: 'email profile'
-  });
-
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsOpening(true);
     setError('');
-    login();
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError('Google Sign-In gagal. Silakan coba lagi.');
+      }
+    } finally {
+      setIsOpening(false);
+    }
   };
 
   return (
